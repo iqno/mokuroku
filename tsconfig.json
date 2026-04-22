@@ -1,6 +1,7 @@
 {
 	"compilerOptions": {
 		"baseUrl": ".",
+		"outDir": ".",
 		"inlineSourceMap": true,
 		"inlineSources": true,
 		"module": "ESNext",
@@ -11,5 +12,6 @@
 		"importHelpers": true,
 		"lib": ["dom", "es5", "scripthost", "es2015"]
 	},
-	"include": ["**/*.ts"]
+	"include": ["*.ts"],
+	"exclude": ["node_modules", "zoottelkeeper-obsidian-plugin"]
 }

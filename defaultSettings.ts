@@ -15,4 +15,6 @@ export const DEFAULT_SETTINGS: MokurokuSettings = {
 	embedSubIndex: false,
 	templateFile: '',
 	frontMatterSeparator: '---',
+	pasteUrlAsLink: true,
+	hideIndexFiles: false,
 };

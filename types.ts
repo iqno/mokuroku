@@ -26,6 +26,8 @@ export interface MokurokuSettings {
 	embedSubIndex: boolean;
 	templateFile: string;
 	frontMatterSeparator: string;
+	pasteUrlAsLink: boolean;
+	hideIndexFiles: boolean;
 	[key: string]: any;
 }
 

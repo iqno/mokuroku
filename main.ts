@@ -1,4 +1,4 @@
-import { App, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile } from 'obsidian';
+import { App, debounce, Editor, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile } from 'obsidian';
 import { MokurokuSettings, IndexItemStyle, SortOrder, GeneralContentOptions } from './types';
 import { isInAllowedFolder, isInDisAllowedFolder, updateFrontmatter, updateIndexContent, removeFrontmatter, hasFrontmatter } from './utils';
 import { DEFAULT_SETTINGS } from './defaultSettings';
@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS } from './defaultSettings';
 export default class MokurokuPlugin extends Plugin {
 	settings: MokurokuSettings;
 	lastVault: Set<string>;
+	private hideStyleEl: HTMLStyleElement | null = null;
 
 	triggerUpdateIndexFile = debounce(
 		this.updateIndexes.bind(this, false),
@@ -17,6 +18,7 @@ export default class MokurokuPlugin extends Plugin {
 		await this.loadSettings();
 		this.app.workspace.onLayoutReady(async () => {
 			this.loadVault();
+			this.refreshHideIndexFiles();
 			console.debug(
 				`[Mokuroku] Vault in files: ${JSON.stringify(
 					this.app.vault.getMarkdownFiles().map((f) => f.path)
@@ -31,6 +33,21 @@ export default class MokurokuPlugin extends Plugin {
 		);
 		this.registerEvent(
 			this.app.vault.on('rename', this.triggerUpdateIndexFile)
+		);
+
+		// Paste URL as markdown link when text is selected
+		this.registerEvent(
+			this.app.workspace.on('editor-paste', (evt: ClipboardEvent, editor: Editor) => {
+				if (!this.settings.pasteUrlAsLink) return;
+				const clipboardText = evt.clipboardData?.getData('text/plain')?.trim();
+				if (!clipboardText) return;
+				const urlRegex = /^https?:\/\/[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)$/;
+				if (!urlRegex.test(clipboardText)) return;
+				const selectedText = editor.getSelection();
+				if (!selectedText) return;
+				evt.preventDefault();
+				editor.replaceSelection(`[${selectedText}](${clipboardText})`);
+			})
 		);
 
 		this.addSettingTab(new MokurokuSettingTab(this.app, this));
@@ -97,9 +114,37 @@ export default class MokurokuPlugin extends Plugin {
 		this.lastVault = new Set(
 			this.app.vault.getMarkdownFiles().map((file) => file.path)
 		);
+		this.refreshHideIndexFiles();
+	}
+
+	refreshHideIndexFiles() {
+		if (this.hideStyleEl) {
+			this.hideStyleEl.remove();
+			this.hideStyleEl = null;
+		}
+		if (!this.settings.hideIndexFiles) return;
+
+		const indexPaths: string[] = [];
+		for (const file of this.app.vault.getMarkdownFiles()) {
+			if (this.isIndexFile(file)) {
+				indexPaths.push(file.path);
+			}
+		}
+		if (indexPaths.length === 0) return;
+
+		const rules = indexPaths.map(p =>
+			`.tree-item:has(> .tree-item-self[data-path="${p}"]) { display: none; }`
+		).join('\n');
+		this.hideStyleEl = document.createElement('style');
+		this.hideStyleEl.textContent = rules;
+		document.head.appendChild(this.hideStyleEl);
 	}
 
 	onunload() {
+		if (this.hideStyleEl) {
+			this.hideStyleEl.remove();
+			this.hideStyleEl = null;
+		}
 		console.debug('[Mokuroku] unloading plugin');
 	}
 
@@ -536,6 +581,33 @@ class MokurokuSettingTab extends PluginSettingTab {
 				t.onChange(async (v) => {
 					this.plugin.settings.addSquareBrackets = v;
 					await this.plugin.saveSettings();
+				});
+			});
+
+		containerEl.createEl('h3', { text: 'Extras' });
+		new Setting(containerEl)
+			.setName('Paste URL as markdown link')
+			.setDesc(
+				'When pasting a URL with text selected, automatically wrap it as [selected text](url) instead of replacing the selection.'
+			)
+			.addToggle((t) => {
+				t.setValue(this.plugin.settings.pasteUrlAsLink);
+				t.onChange(async (v) => {
+					this.plugin.settings.pasteUrlAsLink = v;
+					await this.plugin.saveSettings();
+				});
+			});
+		new Setting(containerEl)
+			.setName('Hide index files in file explorer')
+			.setDesc(
+				'Hide auto-generated index files from the sidebar file explorer. The files still exist and are accessible via links.'
+			)
+			.addToggle((t) => {
+				t.setValue(this.plugin.settings.hideIndexFiles);
+				t.onChange(async (v) => {
+					this.plugin.settings.hideIndexFiles = v;
+					await this.plugin.saveSettings();
+					this.plugin.refreshHideIndexFiles();
 				});
 			});
 	}
