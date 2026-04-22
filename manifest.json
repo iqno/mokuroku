@@ -1,0 +1,10 @@
+{
+	"id": "mokuroku-obsidian-plugin",
+	"name": "Mokuroku",
+	"version": "1.0.0",
+	"minAppVersion": "0.12.1",
+	"description": "This plugin automatically creates, maintains and tags MOCs for all your folders.",
+	"author": "Alen",
+	"authorUrl": "",
+	"isDesktopOnly": false
+}
