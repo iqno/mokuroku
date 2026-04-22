@@ -18,7 +18,7 @@ export default class MokurokuPlugin extends Plugin {
 		await this.loadSettings();
 		this.app.workspace.onLayoutReady(async () => {
 			this.loadVault();
-			this.refreshHideIndexFiles();
+			this.refreshStyles();
 			console.debug(
 				`[Mokuroku] Vault in files: ${JSON.stringify(
 					this.app.vault.getMarkdownFiles().map((f) => f.path)
@@ -49,6 +49,21 @@ export default class MokurokuPlugin extends Plugin {
 				editor.replaceSelection(`[${selectedText}](${clipboardText})`);
 			})
 		);
+
+		// Click folder in file explorer → open its index note
+		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
+			if (!this.settings.hideIndexFiles) return;
+			const target = evt.target as HTMLElement;
+			const folderEl = target.closest('.nav-folder-title[data-path]');
+			if (!folderEl) return;
+			const folderPath = folderEl.getAttribute('data-path');
+			if (!folderPath) return;
+			const indexPath = this.getInnerIndexFilePath(folderPath);
+			const indexFile = this.app.vault.getAbstractFileByPath(indexPath);
+			if (indexFile && indexFile instanceof TFile) {
+				this.app.workspace.getLeaf().openFile(indexFile);
+			}
+		});
 
 		this.addSettingTab(new MokurokuSettingTab(this.app, this));
 	}
@@ -99,7 +114,7 @@ export default class MokurokuPlugin extends Plugin {
 						Array.from(indexFiles2BUpdated)
 					)}`
 				);
-				
+
 				await this.removeDisallowedFoldersIndexes(indexFiles2BUpdated);
 				// update index files
 				for (const indexFile of Array.from(indexFiles2BUpdated)) {
@@ -114,30 +129,37 @@ export default class MokurokuPlugin extends Plugin {
 		this.lastVault = new Set(
 			this.app.vault.getMarkdownFiles().map((file) => file.path)
 		);
-		this.refreshHideIndexFiles();
+		this.refreshStyles();
 	}
 
-	refreshHideIndexFiles() {
+	refreshStyles() {
 		if (this.hideStyleEl) {
 			this.hideStyleEl.remove();
 			this.hideStyleEl = null;
 		}
-		if (!this.settings.hideIndexFiles) return;
 
-		const indexPaths: string[] = [];
-		for (const file of this.app.vault.getMarkdownFiles()) {
-			if (this.isIndexFile(file)) {
-				indexPaths.push(file.path);
+		let css = '';
+
+		if (this.settings.hideChevrons) {
+			css += 'body .nav-folder-collapse-indicator, body .tree-item-icon.collapse-icon { display: none !important; width: 0 !important; padding: 0 !important; margin: 0 !important; }\n';
+		}
+
+		if (this.settings.hideIndexFiles) {
+			const indexPaths = this.app.vault.getMarkdownFiles()
+				.filter(file => this.isIndexFile(file))
+				.map(file => file.path);
+			if (indexPaths.length > 0) {
+				css += indexPaths.map(p =>
+					`.tree-item:has(> .tree-item-self[data-path="${p}"]) { display: none; }`
+				).join('\n');
 			}
 		}
-		if (indexPaths.length === 0) return;
 
-		const rules = indexPaths.map(p =>
-			`.tree-item:has(> .tree-item-self[data-path="${p}"]) { display: none; }`
-		).join('\n');
-		this.hideStyleEl = document.createElement('style');
-		this.hideStyleEl.textContent = rules;
-		document.head.appendChild(this.hideStyleEl);
+		if (css) {
+			this.hideStyleEl = document.createElement('style');
+			this.hideStyleEl.textContent = css;
+			document.head.appendChild(this.hideStyleEl);
+		}
 	}
 
 	onunload() {
@@ -160,10 +182,10 @@ export default class MokurokuPlugin extends Plugin {
 		const templateFile = this.app.vault.getAbstractFileByPath(this.settings.templateFile);
 		let currentTemplateContent = '';
 
-		if (templateFile instanceof TFile){
+		if (templateFile instanceof TFile) {
 			currentTemplateContent = await this.app.vault.cachedRead(templateFile);
-		}	
-		
+		}
+
 		let indexTFile =
 			this.app.vault.getAbstractFileByPath(indexFile) ||
 			(await this.app.vault.create(indexFile, currentTemplateContent));
@@ -190,7 +212,7 @@ export default class MokurokuPlugin extends Plugin {
 					acc['files'].push(curr)
 				else acc['subFolders'].push(curr);
 				return acc;
-			}, {subFolders: [], files: []}
+			}, { subFolders: [], files: [] }
 		)
 
 		indexContent = this.generateGeneralIndexContent({
@@ -199,25 +221,25 @@ export default class MokurokuPlugin extends Plugin {
 			initValue: [],
 		})
 		indexContent = this.generateGeneralIndexContent({
-			items: splitItems.files.filter((file: TFile) => file.name !== indexTFile.name ),
+			items: splitItems.files.filter((file: TFile) => file.name !== indexTFile.name),
 			func: this.generateIndexItem,
 			initValue: indexContent,
 		})
 
 		try {
-			if (indexTFile instanceof TFile){
+			if (indexTFile instanceof TFile) {
 
 				let currentContent = await this.app.vault.cachedRead(indexTFile);
-				if (currentContent === ''){
+				if (currentContent === '') {
 					const templateFile = this.app.vault.getAbstractFileByPath(this.settings.templateFile);
-			
-					if (templateFile instanceof TFile){
+
+					if (templateFile instanceof TFile) {
 						currentContent = await this.app.vault.cachedRead(templateFile);
-					}	
+					}
 				}
 				const updatedFrontmatter = hasFrontmatter(currentContent, this.settings.frontMatterSeparator)
-				 ? updateFrontmatter(this.settings, currentContent)
-				 : '';
+					? updateFrontmatter(this.settings, currentContent)
+					: '';
 
 				currentContent = removeFrontmatter(currentContent, this.settings.frontMatterSeparator);
 				const updatedIndexContent = updateIndexContent(this.settings.sortOrder, currentContent, indexContent);
@@ -234,7 +256,7 @@ export default class MokurokuPlugin extends Plugin {
 		const realFileName = `${path.split('|')[0]}.md`;
 		const fileAbstrPath = this.app.vault.getAbstractFileByPath(realFileName);
 		const embedSubIndexCharacter = this.settings.embedSubIndex && this.isIndexFile(fileAbstrPath) ? '!' : '';
-		
+
 		switch (this.settings.indexItemStyle) {
 			case IndexItemStyle.PureLink:
 				return `${embedSubIndexCharacter}[[${path}]]`;
@@ -248,11 +270,11 @@ export default class MokurokuPlugin extends Plugin {
 	generateIndexItem = (path: string, isFile: boolean): string => {
 		let internalFormattedIndex;
 		if (this.settings.cleanPathBoolean) {
-			const cleanPath = ( path.endsWith(".md"))
-				? path.replace(/\.md$/,'')
+			const cleanPath = (path.endsWith(".md"))
+				? path.replace(/\.md$/, '')
 				: path;
 			const fileName = cleanPath.split("/").pop();
-			internalFormattedIndex = `${cleanPath}|${fileName}`;		
+			internalFormattedIndex = `${cleanPath}|${fileName}`;
 		}
 		else {
 			internalFormattedIndex = path;
@@ -286,14 +308,14 @@ export default class MokurokuPlugin extends Plugin {
 	};
 
 	removeDisallowedFoldersIndexes = async (indexFiles: Set<string>): Promise<void> => {
-		for (const folder of this.settings.foldersExcluded.split('\n').map(f=> f.trim())){
+		for (const folder of this.settings.foldersExcluded.split('\n').map(f => f.trim())) {
 			const innerIndex = this.getInnerIndexFilePath(folder);
 			indexFiles.delete(innerIndex);
 		}
 	}
 
 	cleanDisallowedFolders = async (): Promise<void> => {
-		for (const folder of this.settings.foldersExcluded.split('\n').map(f=> f.trim())){
+		for (const folder of this.settings.foldersExcluded.split('\n').map(f => f.trim())) {
 			const innerIndex = this.getInnerIndexFilePath(folder);
 			const indexTFile = this.app.vault.getAbstractFileByPath(innerIndex);
 			if (indexTFile) {
@@ -326,7 +348,7 @@ export default class MokurokuPlugin extends Plugin {
 
 		return this.isFile(item)
 			&& (this.settings.indexPrefix === ''
-				? item.name === item.parent.name
+				? item.name === item.parent.name + '.md'
 				: item.name.startsWith(this.settings.indexPrefix));
 	}
 
@@ -350,7 +372,7 @@ class MokurokuSettingTab extends PluginSettingTab {
 		containerEl.empty();
 		containerEl.createEl('h2', { text: 'Mokuroku Settings' });
 		containerEl.createEl('h3', { text: 'Folder Settings' });
-		
+
 		new Setting(containerEl)
 			.setName('Folders included')
 			.setDesc(
@@ -362,10 +384,10 @@ class MokurokuSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.foldersIncluded)
 					.onChange(async (value) => {
 						this.plugin.settings.foldersIncluded = value
-							.replace(/,/g,'\n')
+							.replace(/,/g, '\n')
 							.split('\n')
 							.map(
-								folder=> {
+								folder => {
 									const f = folder.trim();
 									return f.startsWith('/')
 										? f.substring(1)
@@ -386,10 +408,10 @@ class MokurokuSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.foldersExcluded)
 					.onChange(async (value) => {
 						this.plugin.settings.foldersExcluded = value
-							.replace(/,/g,'\n')
+							.replace(/,/g, '\n')
 							.split('\n')
 							.map(
-								folder=> {
+								folder => {
 									const f = folder.trim();
 									return f.startsWith('/')
 										? f.substring(1)
@@ -405,12 +427,12 @@ class MokurokuSettingTab extends PluginSettingTab {
 				'By pushing this button you can trigger the indexing on folders match your include/exclude criterias currently set.'
 			)
 			.addButton((btn) => {
-					btn.setButtonText('Generate index now')
-					btn.onClick(async () => {
-						this.plugin.lastVault = new Set();
-						await this.plugin.updateIndexes(true);
-					})
-				}
+				btn.setButtonText('Generate index now')
+				btn.onClick(async () => {
+					this.plugin.lastVault = new Set();
+					await this.plugin.updateIndexes(true);
+				})
+			}
 			);
 
 
@@ -529,7 +551,7 @@ class MokurokuSettingTab extends PluginSettingTab {
 			});
 
 		// setting the meta tag value
-		const metaTagsSetting = new Setting(containerEl)
+		new Setting(containerEl)
 			.setName('Set Meta Tags')
 			.setDesc(
 				'You can add one or multiple tags to your index-files! There is no need to use "#", just use the exact value of the tags\' separator specified below between the tags.'
@@ -584,12 +606,11 @@ class MokurokuSettingTab extends PluginSettingTab {
 				});
 			});
 
-		containerEl.createEl('h3', { text: 'Extras' });
+		// File Explorer & Editor Behaviour
+		containerEl.createEl('h3', { text: 'File Explorer & Editor' });
 		new Setting(containerEl)
 			.setName('Paste URL as markdown link')
-			.setDesc(
-				'When pasting a URL with text selected, automatically wrap it as [selected text](url) instead of replacing the selection.'
-			)
+			.setDesc('When text is selected and a URL is pasted, wrap it as [text](url).')
 			.addToggle((t) => {
 				t.setValue(this.plugin.settings.pasteUrlAsLink);
 				t.onChange(async (v) => {
@@ -599,15 +620,24 @@ class MokurokuSettingTab extends PluginSettingTab {
 			});
 		new Setting(containerEl)
 			.setName('Hide index files in file explorer')
-			.setDesc(
-				'Hide auto-generated index files from the sidebar file explorer. The files still exist and are accessible via links.'
-			)
+			.setDesc('Hides auto-generated index files from the sidebar. Files are still accessible via links. Clicking a folder opens its index.')
 			.addToggle((t) => {
 				t.setValue(this.plugin.settings.hideIndexFiles);
 				t.onChange(async (v) => {
 					this.plugin.settings.hideIndexFiles = v;
 					await this.plugin.saveSettings();
-					this.plugin.refreshHideIndexFiles();
+					this.plugin.refreshStyles();
+				});
+			});
+		new Setting(containerEl)
+			.setName('Hide folder chevrons')
+			.setDesc('Removes the expand/collapse arrow from folders in the sidebar.')
+			.addToggle((t) => {
+				t.setValue(this.plugin.settings.hideChevrons);
+				t.onChange(async (v) => {
+					this.plugin.settings.hideChevrons = v;
+					await this.plugin.saveSettings();
+					this.plugin.refreshStyles();
 				});
 			});
 	}

@@ -1,7 +1,7 @@
 import { SortOrder, IndexItemStyle, MokurokuSettings } from './types';
 
 export const DEFAULT_SETTINGS: MokurokuSettings = {
-	indexPrefix: '_Index_of_',
+	indexPrefix: '',
 	indexItemStyle: IndexItemStyle.PureLink,
 	indexTagValue: 'MOC',
 	indexTagBoolean: true,
@@ -17,4 +17,5 @@ export const DEFAULT_SETTINGS: MokurokuSettings = {
 	frontMatterSeparator: '---',
 	pasteUrlAsLink: true,
 	hideIndexFiles: false,
+	hideChevrons: false,
 };

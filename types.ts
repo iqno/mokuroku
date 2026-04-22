@@ -28,6 +28,7 @@ export interface MokurokuSettings {
 	frontMatterSeparator: string;
 	pasteUrlAsLink: boolean;
 	hideIndexFiles: boolean;
+	hideChevrons: boolean;
 	[key: string]: any;
 }
 
