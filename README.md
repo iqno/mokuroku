@@ -25,7 +25,7 @@ Mokuroku operates by listening to standard local file events (creation, deletion
 1. **Event Detection:** When a file event is triggered, the script determines which directories are affected using symmetric difference logic to compare the current state against the last known state.
 2. **Index Generation:** For the affected directories, it compiles an alphabetically sorted list of the markdown files and subdirectories present.
 3. **Link Formatting:** The file paths are formatted into standard markdown links.
-4. **File Update:** It locates the index file (default name: `_Index_of_[FolderName].md`), searches for the designated Mokuroku metadata markers, and injects the updated list. If no index file exists, it creates one.
+4. **File Update:** It locates the index file (default name matches the folder name), searches for the designated Mokuroku metadata markers, and adds the updated list. If no index file exists, it creates one.
 
 ## Configuration & Usage
 
@@ -33,12 +33,15 @@ The script exposes several configurable parameters directly within the UI to cus
 
 | Setting | Description |
 | :--- | :--- |
-| **Index Prefix** | The naming convention for generated files (Default: `_Index_of_`). |
+| **Index Prefix** | The naming convention for generated files (Default: empty string, meaning index matches folder name). |
 | **List Style** | How links are formatted (Pure Link, Bulleted List, or Checkbox). |
 | **Meta Tags** | YAML frontmatter tags automatically appended to index files (e.g., `MOC`) to enable global search queries. |
 | **Clean Files** | Strips file paths and `.md` extensions for cleaner readability. |
 | **Include/Exclude Rules** | Absolute path definitions to explicitly include or exclude specific directories from the indexing process. |
 | **Template Support** | Allows pointing the script to a boilerplate markdown template for scaffolding new index files. |
+| **Paste URL as Link** | When text is selected and a URL is pasted, it wraps the selection automatically as `[text](url)`. |
+| **Hide Index Files** | Visually hides the auto-generated index files from the file explorer sidebar to reduce clutter, while still keeping them accessible via links and folder clicks. |
+| **Hide Folder Chevrons** | Cleans up the file explorer UI by removing the expand/collapse arrows next to folders. |
 
 ## Codebase Structure
 
