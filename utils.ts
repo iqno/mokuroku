@@ -74,9 +74,6 @@ export const updateIndexContent = (
 	currentContent: string,
 	indexContent: Array<string>,
 ): string => {
-	const intro = currentContent.split(MOKUROKU_INDEX_LIST_BEGINNING_TEXT)[0];
-	const outro = currentContent.split(MOKUROKU_INDEX_LIST_END_TEXT);
-
 	indexContent = indexContent.sort((a, b) => {
 		return a.localeCompare(b, undefined, { numeric: true });
 	});
@@ -85,12 +82,20 @@ export const updateIndexContent = (
 		indexContent.reverse();
 	}
 
-	const content =
-		currentContent === intro || currentContent === outro[0]
-			? `${MOKUROKU_INDEX_LIST_BEGINNING_TEXT}\n${indexContent.join('\n')}\n${MOKUROKU_INDEX_LIST_END_TEXT}\n`
-			: `${intro}${MOKUROKU_INDEX_LIST_BEGINNING_TEXT}\n${indexContent.join('\n')}\n${MOKUROKU_INDEX_LIST_END_TEXT}${outro[1]}`;
+	const indexBlock = `${MOKUROKU_INDEX_LIST_BEGINNING_TEXT}\n${indexContent.join('\n')}\n${MOKUROKU_INDEX_LIST_END_TEXT}\n`;
 
-	return content;
+	if (!currentContent.includes(MOKUROKU_INDEX_LIST_BEGINNING_TEXT)) {
+		if (currentContent.trim() === '') {
+			return indexBlock;
+		}
+		// Append to the end with two newlines
+		return `${currentContent}\n\n${indexBlock}`;
+	}
+
+	const intro = currentContent.split(MOKUROKU_INDEX_LIST_BEGINNING_TEXT)[0];
+	const outro = currentContent.split(MOKUROKU_INDEX_LIST_END_TEXT)[1] || '';
+
+	return `${intro}${indexBlock}${outro}`;
 };
 
 // --- Folder filtering ---
