@@ -348,11 +348,11 @@ export default class MokurokuPlugin extends Plugin {
 	}
 
 	isIndexFile = (item: TAbstractFile): boolean => {
-
-		return this.isFile(item)
-			&& (this.settings.indexPrefix === ''
-				? item.name === item.parent.name + '.md'
-				: item.name.startsWith(this.settings.indexPrefix));
+		if (!this.isFile(item)) return false;
+		const parentName = item.parent.name || this.app.vault.getName();
+		return this.settings.indexPrefix === ''
+			? item.name === parentName + '.md'
+			: item.name.startsWith(this.settings.indexPrefix);
 	}
 
 	isFile = (item: TAbstractFile): boolean => {
