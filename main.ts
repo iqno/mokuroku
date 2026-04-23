@@ -299,12 +299,14 @@ export default class MokurokuPlugin extends Plugin {
 		if (this.isIndexFile(fileAbstrPath)) return null;
 		let parentPath = this.getParentFolder(filePath);
 
-		// if its parent does not exits, then its a moved subfolder, so it should not be updated
+		// Don't generate an index for the vault root
+		if (parentPath === '') return null;
+
+		// if its parent does not exist, then its a moved subfolder, so it should not be updated
 		const parentTFolder = this.app.vault.getAbstractFileByPath(parentPath);
-		if (parentPath && parentPath !== '') {
-			if (!parentTFolder) return undefined;
-			parentPath = `${parentPath}/`;
-		}
+		if (!parentTFolder) return undefined;
+		parentPath = `${parentPath}/`;
+
 		const parentName = this.getParentFolderName(filePath);
 
 		return `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
@@ -349,6 +351,7 @@ export default class MokurokuPlugin extends Plugin {
 
 	isIndexFile = (item: TAbstractFile): boolean => {
 		if (!this.isFile(item)) return false;
+		// At the vault root, parent.name is '' — use vault name instead
 		const parentName = item.parent.name || this.app.vault.getName();
 		return this.settings.indexPrefix === ''
 			? item.name === parentName + '.md'
