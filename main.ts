@@ -208,6 +208,9 @@ export default class MokurokuPlugin extends Plugin {
 
 		const splitItems = indexTFile.parent.children.reduce(
 			(acc: any, curr) => {
+				if (curr.name.startsWith('.') || curr.name.includes('Icon\r')) {
+					return acc;
+				}
 				if (this.isFile(curr))
 					acc['files'].push(curr)
 				else acc['subFolders'].push(curr);
